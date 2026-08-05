@@ -1,0 +1,22 @@
+# This file tracks properties of this Flutter project.
+# Used by Flutter tool to assess capabilities and perform upgrades etc.
+#
+# This file should be version controlled and can be hand-edited.
+version:
+  revision: "nixpkgs-stable"
+  channel: "stable"
+
+project_type: app
+
+# Tracks metadata for the flutter migrate command
+migration:
+  platforms:
+    - platform: root
+      create_revision: nixpkgs-stable
+      base_revision: nixpkgs-stable
+    - platform: android
+      create_revision: nixpkgs-stable
+      base_revision: nixpkgs-stable
+    - platform: ios
+      create_revision: nixpkgs-stable
+      base_revision: nixpkgs-stable
