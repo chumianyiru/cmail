@@ -31,6 +31,11 @@ jobs:
       - name: Generate platform projects
         run: flutter create . --platforms=android,ios --org com.cmail --project-name cmail
 
+      - name: Update Kotlin version
+        run: |
+          sed -i 's/id "org.jetbrains.kotlin.android" version ".*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle || true
+          grep -n "org.jetbrains.kotlin.android" android/settings.gradle || true
+
       - name: Install ImageMagick
         run: sudo apt-get update && sudo apt-get install -y imagemagick
 
@@ -78,21 +83,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build iOS (no codesign)
-        run: flutter build ios --release --no-codesign
+      - name: Build iOS simulator app
+        run: flutter build ios --simulator --release
 
       - name: Package IPA
         run: |
           mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r build/ios/iphoneos/cmail-ios.ipa Payload
+          cp -r build/ios/iphonesimulator/Runner.app Payload/
+          zip -r build/ios/iphonesimulator/cmail-ios.ipa Payload
           rm -rf Payload
 
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ios-build
-          path: build/ios/iphoneos/cmail-ios.ipa
+          path: build/ios/iphonesimulator/cmail-ios.ipa
 
   release:
     needs: [build-android, build-ios]

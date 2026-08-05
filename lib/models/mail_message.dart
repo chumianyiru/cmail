@@ -1,5 +1,7 @@
 class MailMessage {
   final String uid;
+  final int? messageUid;
+  final int? sequenceId;
   final String subject;
   final String fromName;
   final String fromEmail;
@@ -14,6 +16,8 @@ class MailMessage {
 
   MailMessage({
     required this.uid,
+    this.messageUid,
+    this.sequenceId,
     required this.subject,
     required this.fromName,
     required this.fromEmail,

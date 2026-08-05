@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
@@ -23,6 +21,8 @@ class MailService {
       hostname: account.preset.imapHost,
       port: account.preset.imapPort,
       socketType: account.preset.imapSsl ? SocketType.ssl : SocketType.plain,
+      authentication: Authentication.plain,
+      usernameType: UsernameType.emailAddress,
     );
     final outgoing = ServerConfig(
       type: ServerType.smtp,
@@ -30,16 +30,17 @@ class MailService {
       port: account.preset.smtpPort,
       socketType: account.preset.smtpSsl
           ? SocketType.ssl
-          : (account.preset.smtpStartTls ? SocketType.startTls : SocketType.plain),
+          : (account.preset.smtpStartTls ? SocketType.starttls : SocketType.plain),
+      authentication: Authentication.plain,
+      usernameType: UsernameType.emailAddress,
     );
 
     final mailAccount = MailAccount(
       name: account.displayName.isNotEmpty ? account.displayName : account.email,
       userName: account.email,
       email: account.email,
-      incomingMailServer: incoming,
-      outgoingMailServer: outgoing,
-      password: account.password,
+      incoming: incoming,
+      outgoing: outgoing,
     );
 
     _client = MailClient(mailAccount);
@@ -63,8 +64,16 @@ class MailService {
       throw Exception('未连接邮箱');
     }
 
-    final msg = await client.fetchMessage(
-      int.tryParse(uid) ?? 0,
+    final messageUid = int.tryParse(uid);
+    final referenceMessage = MimeMessage();
+    if (messageUid != null) {
+      referenceMessage.uid = messageUid;
+    } else {
+      referenceMessage.sequenceId = int.tryParse(uid);
+    }
+
+    final msg = await client.fetchMessageContents(
+      referenceMessage,
       markAsSeen: true,
     );
     return _convertMessage(msg, fetchBody: true);
@@ -84,13 +93,20 @@ class MailService {
     final from = _account!.displayName.isNotEmpty
         ? MailAddress(_account!.displayName, _account!.email)
         : MailAddress(_account!.email, _account!.email);
-    final message = MessageBuilder.buildSimpleMessage(
-      from,
-      [MailAddress(to, to)],
-      subject,
-      isHtml ? body : null,
-      isHtml ? null : body,
-    );
+    final message = isHtml
+        ? MessageBuilder.prepareMultipartAlternativeMessage(
+            plainText: '',
+            htmlText: body,
+          )
+          ..from = [from]
+          ..to = [MailAddress(to, to)]
+          ..subject = subject
+        : MessageBuilder.buildSimpleTextMessage(
+            from,
+            [MailAddress(to, to)],
+            body,
+            subject: subject,
+          );
     await client.sendMessage(message);
   }
 
@@ -123,7 +139,9 @@ class MailService {
     }
 
     return MailMessage(
-      uid: msg.sequenceId?.toString() ?? msg.uid?.toString() ?? UniqueKey().toString(),
+      uid: msg.uid?.toString() ?? msg.sequenceId?.toString() ?? UniqueKey().toString(),
+      messageUid: msg.uid,
+      sequenceId: msg.sequenceId,
       subject: subject,
       fromName: from.personalName ?? from.email,
       fromEmail: from.email,
