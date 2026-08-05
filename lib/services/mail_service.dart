@@ -16,23 +16,30 @@ class MailService {
     _account = account;
     await disconnect();
 
-    final incoming = ServerConfig(
-      type: ServerType.imap,
-      hostname: account.preset.imapHost,
-      port: account.preset.imapPort,
-      socketType: account.preset.imapSsl ? SocketType.ssl : SocketType.plain,
-      authentication: Authentication.plain,
-      usernameType: UsernameType.emailAddress,
+    final auth = PlainAuthentication(account.email, account.password);
+    final incoming = MailServerConfig(
+      serverConfig: ServerConfig(
+        type: ServerType.imap,
+        hostname: account.preset.imapHost,
+        port: account.preset.imapPort,
+        socketType: account.preset.imapSsl ? SocketType.ssl : SocketType.plain,
+        authentication: Authentication.plain,
+        usernameType: UsernameType.emailAddress,
+      ),
+      authentication: auth,
     );
-    final outgoing = ServerConfig(
-      type: ServerType.smtp,
-      hostname: account.preset.smtpHost,
-      port: account.preset.smtpPort,
-      socketType: account.preset.smtpSsl
-          ? SocketType.ssl
-          : (account.preset.smtpStartTls ? SocketType.starttls : SocketType.plain),
-      authentication: Authentication.plain,
-      usernameType: UsernameType.emailAddress,
+    final outgoing = MailServerConfig(
+      serverConfig: ServerConfig(
+        type: ServerType.smtp,
+        hostname: account.preset.smtpHost,
+        port: account.preset.smtpPort,
+        socketType: account.preset.smtpSsl
+            ? SocketType.ssl
+            : (account.preset.smtpStartTls ? SocketType.starttls : SocketType.plain),
+        authentication: Authentication.plain,
+        usernameType: UsernameType.emailAddress,
+      ),
+      authentication: auth,
     );
 
     final mailAccount = MailAccount(
@@ -93,20 +100,26 @@ class MailService {
     final from = _account!.displayName.isNotEmpty
         ? MailAddress(_account!.displayName, _account!.email)
         : MailAddress(_account!.email, _account!.email);
-    final message = isHtml
-        ? MessageBuilder.prepareMultipartAlternativeMessage(
-            plainText: '',
-            htmlText: body,
-          )
-          ..from = [from]
-          ..to = [MailAddress(to, to)]
-          ..subject = subject
-        : MessageBuilder.buildSimpleTextMessage(
-            from,
-            [MailAddress(to, to)],
-            body,
-            subject: subject,
-          );
+    final toAddress = MailAddress(to, to);
+
+    final MimeMessage message;
+    if (isHtml) {
+      final builder = MessageBuilder.prepareMultipartAlternativeMessage(
+        plainText: '',
+        htmlText: body,
+      );
+      builder.from = [from];
+      builder.to = [toAddress];
+      builder.subject = subject;
+      message = builder.buildMimeMessage();
+    } else {
+      message = MessageBuilder.buildSimpleTextMessage(
+        from,
+        [toAddress],
+        body,
+        subject: subject,
+      );
+    }
     await client.sendMessage(message);
   }
 
